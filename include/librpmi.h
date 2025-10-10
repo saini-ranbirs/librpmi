@@ -88,8 +88,8 @@ enum rpmi_message_type {
 	RPMI_MSG_NORMAL_REQUEST = 0x0,
 	/* Request without any ack */
 	RPMI_MSG_POSTED_REQUEST = 0x1,
-	/* Acknowledgment for normal request message */
-	RPMI_MSG_ACKNOWLDGEMENT = 0x2,
+	/* Acknowledgement for normal request message */
+	RPMI_MSG_ACKNOWLEDGEMENT = 0x2,
 	/* Notification message */
 	RPMI_MSG_NOTIFICATION = 0x3,
 };
@@ -321,6 +321,14 @@ enum rpmi_cppc_service_id {
 	RPMI_CPPC_SRV_GET_FAST_CHANNEL_OFFSET = 0x06,
 	RPMI_CPPC_SRV_GET_HART_LIST = 0x07,
 	RPMI_CPPC_SRV_ID_MAX,
+};
+
+/** RPMI Management Mode (MM) ServiceGroup Service IDs */
+enum rpmi_mm_service_id {
+	RPMI_MM_SRV_ENABLE_NOTIFICATION = 0x01,
+	RPMI_MM_SRV_GET_ATTRIBUTES = 0x02,
+	RPMI_MM_SRV_COMMUNICATE = 0x03,
+	RPMI_MM_SRV_ID_MAX,
 };
 
 /** @} */
@@ -747,7 +755,7 @@ struct rpmi_service_group {
 	struct rpmi_service *services;
 
 	/**
-	 * Callback to process events for a service group. This events can be:
+	 * Callback to process events for a service group. These events can be:
 	 *
 	 * 1) Fast-channel requests from application processors
 	 * 2) Pending HW interrupts relevant to a service group
