@@ -45,7 +45,24 @@ static enum rpmi_error rpmi_mm_get_attributes(struct rpmi_service_group *group,
 					      rpmi_uint16_t *response_datalen,
 					      rpmi_uint8_t *response_data)
 {
-	return RPMI_ERR_NOTSUPP;
+	struct rpmi_service_group_mm *sgmm = group->priv;
+	rpmi_uint32_t *rsp = (void *)response_data;
+	enum rpmi_error status;
+
+	if (sgmm && response_datalen) {
+		*response_datalen = 5 * sizeof(rpmi_uint32_t);
+		rsp[1] = rpmi_to_xe32(xport->is_be, sgmm->mma.mm_version);
+		rsp[2] = rpmi_to_xe32(xport->is_be, sgmm->mma.shmem_addr_lo);
+		rsp[3] = rpmi_to_xe32(xport->is_be, sgmm->mma.shmem_addr_hi);
+		rsp[4] = rpmi_to_xe32(xport->is_be, sgmm->mma.shmem_size);
+		status = RPMI_SUCCESS;
+	} else {
+		status = RPMI_ERR_NO_DATA;
+	}
+
+	rsp[0] = rpmi_to_xe32(xport->is_be, (rpmi_int32_t)status);
+
+	return RPMI_SUCCESS;
 }
 
 static enum rpmi_error rpmi_mm_communicate(struct rpmi_service_group *group,
