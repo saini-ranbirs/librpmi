@@ -147,6 +147,61 @@ static inline int get_guid_index(const rpmi_uint8_t *guid,
 	return 0;
 }
 
+static rpmi_uint64_t validate_input(struct mm_var_comm_header *comm_hdr,
+				    rpmi_uint32_t payload_size)
+{
+	struct mm_var_comm_access_variable *var;
+	rpmi_uint64_t infosize;
+
+	if (payload_size < offsetof(struct mm_var_comm_access_variable, name)) {
+		DPRINTF("MM communication buffer size invalid !!!");
+		return EFI_INVALID_PARAMETER;
+	}
+
+	/* Copy the input communicate buffer payload to local payload buffer */
+	rpmi_env_memcpy(payload_buffer, comm_hdr->data, payload_size);
+	var = (struct mm_var_comm_access_variable *)payload_buffer;
+
+	/* Prevent infosize overflow */
+	if ((((rpmi_uint64_t)(~0) - var->datasize) <
+	     offsetof(struct mm_var_comm_access_variable, name))
+	    ||
+	    (((rpmi_uint64_t)(~0) - var->namesize) <
+	     offsetof(struct mm_var_comm_access_variable, name) +
+	     var->datasize)) {
+		DPRINTF("infosize overflow !!!");
+		return EFI_ACCESS_DENIED;
+	}
+
+	infosize = offsetof(struct mm_var_comm_access_variable, name) +
+	    var->datasize + var->namesize;
+	if (infosize > payload_size) {
+		DPRINTF("Data size exceed communication buffer size limit !!!");
+		return EFI_ACCESS_DENIED;
+	}
+
+	/* Ensure Variable Name is a Null-terminated string */
+	if ((var->namesize < sizeof(rpmi_uint16_t)) ||
+	    (var->name[var->namesize / sizeof(rpmi_uint16_t) - 1] != L'\0')) {
+		DPRINTF("Variable Name NOT Null-terminated !!!");
+		return EFI_ACCESS_DENIED;
+	}
+
+	return EFI_SUCCESS;
+}
+
+static rpmi_uint64_t fn_set_variable(struct mm_var_comm_header *comm_hdr,
+				     rpmi_uint32_t payload_size)
+{
+	rpmi_uint64_t status;
+
+	status = validate_input(comm_hdr, payload_size);
+	if (status != EFI_SUCCESS)
+		return status;
+
+	return EFI_SUCCESS;
+}
+
 static inline rpmi_uint64_t fn_get_payload_size(rpmi_uint8_t *comm_hdr_data,
 						rpmi_uint32_t payload_size)
 {
@@ -190,6 +245,13 @@ static enum rpmi_error mm_var_fn_handler(void *comm_buf, rpmi_uint64_t bufsize)
 	var_comm_hdr = (struct mm_var_comm_header *)comm_buf;
 
 	switch (var_comm_hdr->function) {
+	case MM_VAR_FN_SET_VARIABLE:
+		DPRINTF("Processing %s mm_calls_counter %u",
+			get_var_fn_string(var_comm_hdr->function),
+			++mm_calls_counter);
+		status = fn_set_variable(var_comm_hdr, payload_size);
+		break;
+
 	case MM_VAR_FN_GET_PAYLOAD_SIZE:
 		DPRINTF("Processing %s mm_calls_counter %u",
 			get_var_fn_string(var_comm_hdr->function),
