@@ -79,6 +79,7 @@ struct efi_var_policy_comm_header {
 /** The payload for this function is struct mm_var_comm_access_variable */
 #define MM_VAR_FN_GET_VARIABLE                         1
 
+/** The payload for this function is struct mm_var_comm_get_next_var_name */
 #define MM_VAR_FN_GET_NEXT_VARIABLE_NAME               2
 
 /** The payload for this function is struct mm_var_comm_access_variable */
@@ -125,6 +126,13 @@ struct mm_var_comm_access_variable {
 	rpmi_uint64_t datasize;
 	rpmi_uint64_t namesize;
 	rpmi_uint32_t attr;
+	rpmi_uint16_t name[1];
+};
+
+/** This structure is used to communicate with MM via GetNextVariableName */
+struct mm_var_comm_get_next_var_name {
+	struct efi_guid guid;
+	rpmi_uint64_t namesize;	// Return name buffer size
 	rpmi_uint16_t name[1];
 };
 

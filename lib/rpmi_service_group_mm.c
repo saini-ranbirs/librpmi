@@ -208,6 +208,65 @@ static rpmi_uint64_t fn_get_variable(struct mm_var_comm_header *comm_hdr,
 	return EFI_SUCCESS;
 }
 
+static rpmi_uint64_t validate_name(struct mm_var_comm_header *comm_hdr,
+				   rpmi_uint32_t payload_size)
+{
+	struct mm_var_comm_get_next_var_name *var;
+	rpmi_uint64_t infosize, max_len;
+
+	if (payload_size < offsetof(struct mm_var_comm_get_next_var_name, name)) {
+		DPRINTF("MM communication buffer size invalid !!!");
+		return EFI_INVALID_PARAMETER;
+	}
+
+	/* Copy the input communicate buffer payload to local payload buffer */
+	rpmi_env_memcpy(payload_buffer, comm_hdr->data, payload_size);
+	var = (struct mm_var_comm_get_next_var_name *)payload_buffer;
+
+	/*
+	 * Calculate the possible maximum length of name string, including the
+	 * Null-terminator.
+	 */
+	max_len = var->namesize / sizeof(rpmi_uint16_t);
+	if (!max_len ||
+	    (rpmi_env_strnlen((const char *)var->name, max_len) == max_len)) {
+		/*
+		 * Null-terminator is not found in the first namesize bytes of
+		 * the name buffer, follow spec to return EFI_INVALID_PARAMETER.
+		 */
+		return EFI_INVALID_PARAMETER;
+	}
+
+	/* Prevent infosize overflow */
+	if (((rpmi_uint64_t)(~0) - var->namesize) <
+	    offsetof(struct mm_var_comm_get_next_var_name, name) +
+	    var->namesize) {
+		DPRINTF("infosize overflow !!!");
+		return EFI_ACCESS_DENIED;
+	}
+
+	infosize =
+	    offsetof(struct mm_var_comm_access_variable, name) + var->namesize;
+	if (infosize > payload_size) {
+		DPRINTF("Data size exceed communication buffer size limit !!!");
+		return EFI_ACCESS_DENIED;
+	}
+
+	return EFI_SUCCESS;
+}
+
+static rpmi_uint64_t fn_get_next_var_name(struct mm_var_comm_header *comm_hdr,
+					  rpmi_uint32_t payload_size)
+{
+	rpmi_uint64_t status;
+
+	status = validate_name(comm_hdr, payload_size);
+	if (status != EFI_SUCCESS)
+		return status;
+
+	return EFI_SUCCESS;
+}
+
 static rpmi_uint64_t fn_set_variable(struct mm_var_comm_header *comm_hdr,
 				     rpmi_uint32_t payload_size)
 {
@@ -268,6 +327,13 @@ static enum rpmi_error mm_var_fn_handler(void *comm_buf, rpmi_uint64_t bufsize)
 			get_var_fn_string(var_comm_hdr->function),
 			++mm_calls_counter);
 		status = fn_get_variable(var_comm_hdr, payload_size);
+		break;
+
+	case MM_VAR_FN_GET_NEXT_VARIABLE_NAME:
+		DPRINTF("Processing %s mm_calls_counter %u",
+			get_var_fn_string(var_comm_hdr->function),
+			++mm_calls_counter);
+		status = fn_get_next_var_name(var_comm_hdr, payload_size);
 		break;
 
 	case MM_VAR_FN_SET_VARIABLE:
