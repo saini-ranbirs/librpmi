@@ -55,6 +55,9 @@ struct rpmi_mm_comm_header_guid mm_comm_hdr_guid_lut[] = {
 	[0] { EFI_MM_HDR_GUID_NONE, EFI_MM_HDR_GUID_NONE_DATA },
 	[1] { EFI_MM_VAR_PROTOCOL_GUID, EFI_MM_VAR_PROTOCOL_GUID_DATA },
 	[2] { EFI_MM_VAR_POLICY_GUID, EFI_MM_VAR_POLICY_GUID_DATA },
+	[3] { EFI_MM_END_OF_DXE_GUID, EFI_MM_END_OF_DXE_GUID_DATA },
+	[4] { EFI_MM_READY_TO_BOOT_GUID, EFI_MM_READY_TO_BOOT_GUID_DATA },
+	[5] { EFI_MM_EXIT_BOOT_SVC_GUID, EFI_MM_EXIT_BOOT_SVC_GUID_DATA },
 };
 
 #define MAX_TRANSFER_SIZE  (16 * 1024)	/* 16 KB */
@@ -72,6 +75,9 @@ static const char *get_hdr_guid_string(enum efi_mm_header_guid guid)
 	switch (guid) {
 		STRING_CASE(EFI_MM_VAR_PROTOCOL_GUID);
 		STRING_CASE(EFI_MM_VAR_POLICY_GUID);
+		STRING_CASE(EFI_MM_END_OF_DXE_GUID);
+		STRING_CASE(EFI_MM_READY_TO_BOOT_GUID);
+		STRING_CASE(EFI_MM_EXIT_BOOT_SVC_GUID);
 
 	default:
 		STRING_CASE(EFI_MM_HDR_GUID_UNSUPPORTED);
@@ -350,6 +356,13 @@ static enum rpmi_error mm_var_fn_handler(void *comm_buf, rpmi_uint64_t bufsize)
 		status = fn_get_payload_size(var_comm_hdr->data, payload_size);
 		break;
 
+	case MM_VAR_FN_READY_TO_BOOT:
+	case MM_VAR_FN_EXIT_BOOT_SERVICE:
+		DPRINTF("Processing (dummy) %s",
+			get_var_fn_string(var_comm_hdr->function));
+		status = EFI_SUCCESS;
+		break;
+
 	default:
 		status = EFI_UNSUPPORTED;
 		DPRINTF("%s not supported",
@@ -371,6 +384,7 @@ static enum rpmi_error rpmi_mm_communicate(struct rpmi_service_group *group,
 					   rpmi_uint8_t *response_data)
 {
 	struct rpmi_service_group_mm *sgmm = group->priv;
+	struct efi_var_policy_comm_header *policy_hdr;
 	struct efi_mm_comm_header *mm_comm_hdr, *msg;
 	rpmi_uint32_t *rsp = (void *)response_data;
 	rpmi_uint64_t status = RPMI_ERR_NO_DATA;
@@ -409,6 +423,27 @@ static enum rpmi_error rpmi_mm_communicate(struct rpmi_service_group *group,
 		break;
 
 	case EFI_MM_VAR_POLICY_GUID:
+		DPRINTF("Handling (dummy) header %s",
+			get_hdr_guid_string(mm_comm_hdr_guid_lut[index].name));
+		status = RPMI_SUCCESS;
+
+		policy_hdr = (struct efi_var_policy_comm_header *)&msg->data;
+		policy_hdr->result = 0x00;
+
+		/* Maintain msg_len as next multiple of GUID_LENGTH/ 16 bytes */
+		msg_len = offsetof(struct efi_mm_comm_header, data) +
+		    sizeof(*policy_hdr);
+		msg_len = msg_len + GUID_LENGTH - 1;
+		msg_len = msg_len / GUID_LENGTH;
+		msg_len = msg_len * GUID_LENGTH;
+
+		rpmi_env_writeb(mm_addr + mmc_req->odata_off,
+				(rpmi_uint8_t *)msg, msg_len);
+		break;
+
+	case EFI_MM_END_OF_DXE_GUID:
+	case EFI_MM_READY_TO_BOOT_GUID:
+	case EFI_MM_EXIT_BOOT_SVC_GUID:
 		DPRINTF("Handling (dummy) header %s",
 			get_hdr_guid_string(mm_comm_hdr_guid_lut[index].name));
 		status = RPMI_SUCCESS;
