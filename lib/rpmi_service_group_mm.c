@@ -148,7 +148,8 @@ static inline int get_guid_index(const rpmi_uint8_t *guid,
 }
 
 static rpmi_uint64_t validate_input(struct mm_var_comm_header *comm_hdr,
-				    rpmi_uint32_t payload_size)
+				    rpmi_uint32_t payload_size,
+				    rpmi_bool_t is_context_get_variable)
 {
 	struct mm_var_comm_access_variable *var;
 	rpmi_uint64_t infosize;
@@ -187,6 +188,21 @@ static rpmi_uint64_t validate_input(struct mm_var_comm_header *comm_hdr,
 		return EFI_ACCESS_DENIED;
 	}
 
+	if (is_context_get_variable && (var->name[0] == 0))
+		return EFI_INVALID_PARAMETER;
+
+	return EFI_SUCCESS;
+}
+
+static rpmi_uint64_t fn_get_variable(struct mm_var_comm_header *comm_hdr,
+				     rpmi_uint32_t payload_size)
+{
+	rpmi_uint64_t status;
+
+	status = validate_input(comm_hdr, payload_size, true);
+	if (status != EFI_SUCCESS)
+		return status;
+
 	return EFI_SUCCESS;
 }
 
@@ -195,7 +211,7 @@ static rpmi_uint64_t fn_set_variable(struct mm_var_comm_header *comm_hdr,
 {
 	rpmi_uint64_t status;
 
-	status = validate_input(comm_hdr, payload_size);
+	status = validate_input(comm_hdr, payload_size, false);
 	if (status != EFI_SUCCESS)
 		return status;
 
@@ -245,6 +261,13 @@ static enum rpmi_error mm_var_fn_handler(void *comm_buf, rpmi_uint64_t bufsize)
 	var_comm_hdr = (struct mm_var_comm_header *)comm_buf;
 
 	switch (var_comm_hdr->function) {
+	case MM_VAR_FN_GET_VARIABLE:
+		DPRINTF("Processing %s mm_calls_counter %u",
+			get_var_fn_string(var_comm_hdr->function),
+			++mm_calls_counter);
+		status = fn_get_variable(var_comm_hdr, payload_size);
+		break;
+
 	case MM_VAR_FN_SET_VARIABLE:
 		DPRINTF("Processing %s mm_calls_counter %u",
 			get_var_fn_string(var_comm_hdr->function),
