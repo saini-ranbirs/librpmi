@@ -206,6 +206,12 @@ static rpmi_uint64_t fn_get_variable(struct mm_var_comm_header *comm_hdr,
 	return EFI_SUCCESS;
 }
 
+static rpmi_uint64_t fn_get_next_var_name(struct mm_var_comm_header *comm_hdr,
+					  rpmi_uint32_t payload_size)
+{
+	return EFI_SUCCESS;
+}
+
 static rpmi_uint64_t fn_set_variable(struct mm_var_comm_header *comm_hdr,
 				     rpmi_uint32_t payload_size)
 {
@@ -266,6 +272,14 @@ static enum rpmi_error mm_var_handler(void *comm_buf, rpmi_uint64_t bufsize)
 			get_var_fn_string(var_comm_hdr->function));
 		status = fn_get_variable(var_comm_hdr, comm_buf_payload_size);
 		break;
+
+	case MM_VAR_FN_GET_NEXT_VARIABLE_NAME:
+		DPRINTF("Processing %s",
+			get_var_fn_string(var_comm_hdr->function));
+		status = fn_get_next_var_name(var_comm_hdr,
+					      comm_buf_payload_size);
+		break;
+
 
 	case MM_VAR_FN_SET_VARIABLE:
 		DPRINTF("Processing %s",
