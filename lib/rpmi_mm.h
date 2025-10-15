@@ -12,6 +12,7 @@
 #define EFI_SUCCESS            ((rpmi_uint64_t)0)
 #define EFI_INVALID_PARAMETER  ENCODE_ERROR(2)
 #define EFI_UNSUPPORTED        ENCODE_ERROR(3)
+#define EFI_ACCESS_DENIED      ENCODE_ERROR(15)
 
 /** Basic data type definitions introduced in UEFI */
 struct efi_guid {
@@ -59,7 +60,10 @@ struct efi_mm_comm_header {
 
 #define MM_VAR_FN_GET_VARIABLE                         1
 #define MM_VAR_FN_GET_NEXT_VARIABLE_NAME               2
+
+/** The payload for this function is struct mm_var_comm_access_variable */
 #define MM_VAR_FN_SET_VARIABLE                         3
+
 #define MM_VAR_FN_QUERY_VARIABLE_INFO                  4
 #define MM_VAR_FN_READY_TO_BOOT                        5
 #define MM_VAR_FN_EXIT_BOOT_SERVICE                    6
@@ -93,6 +97,15 @@ struct mm_var_comm_header {
 	rpmi_uint64_t function;
 	rpmi_uint64_t return_status;
 	rpmi_uint8_t data[1];
+};
+
+/** This structure is used to communicate with MM via SetVariable */
+struct mm_var_comm_access_variable {
+	struct efi_guid guid;
+	rpmi_uint64_t datasize;
+	rpmi_uint64_t namesize;
+	rpmi_uint32_t attr;
+	rpmi_uint16_t name[1];
 };
 
 struct mm_var_comm_get_payload_size {
