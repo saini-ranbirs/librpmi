@@ -6,30 +6,6 @@
 #ifndef __RPMI_MM_H__
 #define __RPMI_MM_H__
 
-#define MAX_BIT  (0x8000000000000000ULL)
-
-#define ENCODE_ERROR(code)     ((rpmi_uint64_t)(MAX_BIT | code))
-#define RETURN_ERROR(code)     (((rpmi_int64_t)(rpmi_uint64_t)(code)) < 0)
-
-#define EFI_SUCCESS            ((rpmi_uint64_t)0)
-#define EFI_INVALID_PARAMETER  ENCODE_ERROR(2)
-#define EFI_UNSUPPORTED        ENCODE_ERROR(3)
-#define EFI_BUFFER_TOO_SMALL   ENCODE_ERROR(5)
-#define EFI_NOT_FOUND          ENCODE_ERROR(14)
-#define EFI_ACCESS_DENIED      ENCODE_ERROR(15)
-
-#define EFI_ERROR(n)           RETURN_ERROR(n)
-
-/** Basic data type definitions introduced in UEFI */
-struct efi_guid {
-	rpmi_uint32_t data1;
-	rpmi_uint16_t data2;
-	rpmi_uint16_t data3;
-	rpmi_uint8_t data4[8];
-};
-
-#define GUID_LENGTH  16
-
 enum efi_mm_header_guid {
 	EFI_MM_HDR_GUID_UNSUPPORTED,
 	EFI_MM_HDR_GUID_NONE = EFI_MM_HDR_GUID_UNSUPPORTED,
@@ -133,22 +109,6 @@ struct mm_var_comm_header {
 	rpmi_uint64_t function;
 	rpmi_uint64_t return_status;
 	rpmi_uint8_t data[1];
-};
-
-/** This structure is used to communicate with MM via SetVariable/GetVariable */
-struct mm_var_comm_access_variable {
-	struct efi_guid guid;
-	rpmi_uint64_t datasize;
-	rpmi_uint64_t namesize;
-	rpmi_uint32_t attr;
-	rpmi_uint16_t name[1];
-};
-
-/** This structure is used to communicate with MM via GetNextVariableName */
-struct mm_var_comm_get_next_var_name {
-	struct efi_guid guid;
-	rpmi_uint64_t namesize;	// Return name buffer size
-	rpmi_uint16_t name[1];
 };
 
 struct mm_var_comm_get_payload_size {
