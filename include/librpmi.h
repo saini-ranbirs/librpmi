@@ -1138,6 +1138,32 @@ struct rpmi_service_group *rpmi_service_group_hsm_create(struct rpmi_hsm *hsm);
  */
 void rpmi_service_group_hsm_destroy(struct rpmi_service_group *group);
 
+/** Platform specific MM operations (synchronous) */
+/**
+ * This structure is used for MM variable. The communication buffer should be:
+ *      struct efi_mm_comm_header + struct mm_var_comm_header + payload
+ */
+struct mm_var_comm_header {
+	rpmi_uint64_t function;
+	rpmi_uint64_t return_status;
+	rpmi_uint8_t data[1];
+};
+
+struct rpmi_mm_platform_ops {
+	rpmi_uint64_t (*get_variable)(void *priv,
+				      struct mm_var_comm_header *comm_hdr,
+				      rpmi_uint32_t payload_size);
+
+	rpmi_uint64_t
+	    (*get_next_variable_name)(void *priv,
+				      struct mm_var_comm_header *comm_hdr,
+				      rpmi_uint32_t payload_size);
+
+	rpmi_uint64_t (*set_variable)(void *priv,
+				      struct mm_var_comm_header *comm_hdr,
+				      rpmi_uint32_t payload_size);
+};
+
 /**
  * @brief Create a management mode (MM) service group instance
  *
@@ -1149,7 +1175,9 @@ void rpmi_service_group_hsm_destroy(struct rpmi_service_group *group);
 struct rpmi_service_group
 *rpmi_service_group_mm_create(rpmi_uint32_t shmem_addr_hi,
 			      rpmi_uint32_t shmem_addr_lo,
-			      rpmi_uint32_t shmem_size);
+			      rpmi_uint32_t shmem_size,
+			      const struct rpmi_mm_platform_ops *ops,
+			      void *ops_priv);
 /**
  * @brief Destroy (or free) a management mode (MM) service group instance
  *

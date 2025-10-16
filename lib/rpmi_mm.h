@@ -125,16 +125,6 @@ struct efi_var_policy_comm_header {
 #define MAX_VARINFO_SIZE  1024
 #define MAX_PAYLOAD_SIZE  (MAX_VARINFO_SIZE - MM_VAR_COMM_HEADER_SIZE)
 
-/**
- * This structure is used for MM variable. The communication buffer should be:
- *      struct efi_mm_comm_header + struct mm_var_comm_header + payload
- */
-struct mm_var_comm_header {
-	rpmi_uint64_t function;
-	rpmi_uint64_t return_status;
-	rpmi_uint8_t data[1];
-};
-
 /** This structure is used to communicate with MM via SetVariable/GetVariable */
 struct mm_var_comm_access_variable {
 	struct efi_guid guid;
