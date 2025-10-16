@@ -36,6 +36,8 @@ struct rpmi_mm_attr {
 
 struct rpmi_service_group_mm {
 	struct rpmi_mm_attr mma;
+	const struct rpmi_mm_platform_ops *ops;
+	void *ops_priv;
 	struct rpmi_service_group group;
 };
 
@@ -202,7 +204,8 @@ static rpmi_uint64_t validate_input(struct mm_var_comm_header *comm_hdr,
 	return EFI_SUCCESS;
 }
 
-static rpmi_uint64_t fn_get_variable(struct mm_var_comm_header *comm_hdr,
+static rpmi_uint64_t fn_get_variable(struct rpmi_service_group_mm *sgmm,
+				     struct mm_var_comm_header *comm_hdr,
 				     rpmi_uint32_t payload_size)
 {
 	rpmi_uint64_t status;
@@ -211,7 +214,8 @@ static rpmi_uint64_t fn_get_variable(struct mm_var_comm_header *comm_hdr,
 	if (status != EFI_SUCCESS)
 		return status;
 
-	return EFI_SUCCESS;
+	return sgmm->ops->get_variable(sgmm->ops_priv, comm_hdr->data,
+				       payload_size);
 }
 
 static rpmi_uint64_t validate_name(struct mm_var_comm_header *comm_hdr,
@@ -261,7 +265,8 @@ static rpmi_uint64_t validate_name(struct mm_var_comm_header *comm_hdr,
 	return EFI_SUCCESS;
 }
 
-static rpmi_uint64_t fn_get_next_var_name(struct mm_var_comm_header *comm_hdr,
+static rpmi_uint64_t fn_get_next_var_name(struct rpmi_service_group_mm *sgmm,
+					  struct mm_var_comm_header *comm_hdr,
 					  rpmi_uint32_t payload_size)
 {
 	rpmi_uint64_t status;
@@ -270,10 +275,12 @@ static rpmi_uint64_t fn_get_next_var_name(struct mm_var_comm_header *comm_hdr,
 	if (status != EFI_SUCCESS)
 		return status;
 
-	return EFI_SUCCESS;
+	return sgmm->ops->get_next_variable_name(sgmm->ops_priv, comm_hdr->data,
+						 payload_size);
 }
 
-static rpmi_uint64_t fn_set_variable(struct mm_var_comm_header *comm_hdr,
+static rpmi_uint64_t fn_set_variable(struct rpmi_service_group_mm *sgmm,
+				     struct mm_var_comm_header *comm_hdr,
 				     rpmi_uint32_t payload_size)
 {
 	rpmi_uint64_t status;
@@ -282,7 +289,8 @@ static rpmi_uint64_t fn_set_variable(struct mm_var_comm_header *comm_hdr,
 	if (status != EFI_SUCCESS)
 		return status;
 
-	return EFI_SUCCESS;
+	return sgmm->ops->set_variable(sgmm->ops_priv, comm_hdr->data,
+				       payload_size);
 }
 
 static inline rpmi_uint64_t fn_get_payload_size(rpmi_uint8_t *comm_hdr_data,
@@ -299,7 +307,8 @@ static inline rpmi_uint64_t fn_get_payload_size(rpmi_uint8_t *comm_hdr_data,
 	return EFI_SUCCESS;
 }
 
-static enum rpmi_error mm_var_fn_handler(void *comm_buf, rpmi_uint64_t bufsize)
+static enum rpmi_error mm_var_fn_handler(struct rpmi_service_group_mm *sgmm,
+					 void *comm_buf, rpmi_uint64_t bufsize)
 {
 	rpmi_uint64_t status = EFI_SUCCESS, payload_size;
 	struct mm_var_comm_header *var_comm_hdr;
@@ -332,21 +341,21 @@ static enum rpmi_error mm_var_fn_handler(void *comm_buf, rpmi_uint64_t bufsize)
 		DPRINTF("Processing %s mm_calls_counter %u",
 			get_var_fn_string(var_comm_hdr->function),
 			++mm_calls_counter);
-		status = fn_get_variable(var_comm_hdr, payload_size);
+		status = fn_get_variable(sgmm, var_comm_hdr, payload_size);
 		break;
 
 	case MM_VAR_FN_GET_NEXT_VARIABLE_NAME:
 		DPRINTF("Processing %s mm_calls_counter %u",
 			get_var_fn_string(var_comm_hdr->function),
 			++mm_calls_counter);
-		status = fn_get_next_var_name(var_comm_hdr, payload_size);
+		status = fn_get_next_var_name(sgmm, var_comm_hdr, payload_size);
 		break;
 
 	case MM_VAR_FN_SET_VARIABLE:
 		DPRINTF("Processing %s mm_calls_counter %u",
 			get_var_fn_string(var_comm_hdr->function),
 			++mm_calls_counter);
-		status = fn_set_variable(var_comm_hdr, payload_size);
+		status = fn_set_variable(sgmm, var_comm_hdr, payload_size);
 		break;
 
 	case MM_VAR_FN_GET_PAYLOAD_SIZE:
@@ -417,7 +426,7 @@ static enum rpmi_error rpmi_mm_communicate(struct rpmi_service_group *group,
 	case EFI_MM_VAR_PROTOCOL_GUID:
 		DPRINTF("Handling header %s",
 			get_hdr_guid_string(mm_comm_hdr_guid_lut[index].name));
-		status = mm_var_fn_handler(&msg->data, msg_len);
+		status = mm_var_fn_handler(sgmm, &msg->data, msg_len);
 		rpmi_env_writeb(mm_addr + mmc_req->odata_off,
 				(rpmi_uint8_t *)msg, msg_len);
 		break;
@@ -489,7 +498,9 @@ static struct rpmi_service rpmi_mm_services[RPMI_MM_SRV_ID_MAX] = {
 struct rpmi_service_group
 *rpmi_service_group_mm_create(rpmi_uint32_t shmem_addr_hi,
 			      rpmi_uint32_t shmem_addr_lo,
-			      rpmi_uint32_t shmem_size)
+			      rpmi_uint32_t shmem_size,
+			      const struct rpmi_mm_platform_ops *ops,
+			      void *ops_priv)
 {
 	struct rpmi_service_group_mm *sgmm;
 	struct rpmi_service_group *group;
@@ -507,6 +518,8 @@ struct rpmi_service_group
 	sgmm->mma.shmem_addr_hi = shmem_addr_hi;
 	sgmm->mma.shmem_addr_lo = shmem_addr_lo;
 	sgmm->mma.shmem_size = shmem_size;
+	sgmm->ops = ops;
+	sgmm->ops_priv = ops_priv;
 
 	group = &sgmm->group;
 	group->name = "mm";
