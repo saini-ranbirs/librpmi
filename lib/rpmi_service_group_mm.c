@@ -5,15 +5,16 @@
 
 #include <librpmi.h>
 #include "librpmi_internal.h"
-#define RPMI_MM_COMMON_OWNER
 #include "mm/rpmi_mm_common.h"
-#undef RPMI_MM_COMMON_OWNER
 
-/* Let it be RPMI Spec MM Version */
+/* RPMI Spec MM Version : Not explicitly defined in Spec as such */
 #define RPMI_MM_MAJOR_VER   (0x1UL)
 #define RPMI_MM_MINOR_VER   0x0
 
-/* Probably a change reqd in RISC-V EDK2 MMcommunicate.h as it defines 0xEFFF0000 */
+/**
+ * Note: A change is required in RISC-V EDK2 MMcommunicate.h as it defines the
+ * MM_MAJOR_VER_MASK as 0xEFFF0000 => The top nibble is E and not F: why?
+ */
 #define MM_MAJOR_VER_MASK   0xFFFF0000
 #define MM_MINOR_VER_MASK   0x0000FFFF
 #define MM_MAJOR_VER_SHIFT  16
@@ -34,9 +35,9 @@ static enum rpmi_error rpmi_mm_get_attributes(struct rpmi_service_group *group,
 		*response_datalen = 5 * sizeof(rpmi_uint32_t);
 		rsp[1] = rpmi_to_xe32(xport->is_be, sgmm->mm_version);
 		rsp[2] = rpmi_to_xe32(xport->is_be,
-				      sgmm->mmi.shmem_addr & 0xFFFFFFFF);
-		rsp[3] = rpmi_to_xe32(xport->is_be, sgmm->mmi.shmem_addr >> 32);
-		rsp[4] = rpmi_to_xe32(xport->is_be, sgmm->mmi.shmem_size);
+				      sgmm->mm.shmem_addr & 0xFFFFFFFF);
+		rsp[3] = rpmi_to_xe32(xport->is_be, sgmm->mm.shmem_addr >> 32);
+		rsp[4] = rpmi_to_xe32(xport->is_be, sgmm->mm.shmem_size);
 		status = RPMI_SUCCESS;
 	} else {
 		status = RPMI_ERR_NO_DATA;
@@ -62,18 +63,11 @@ static enum rpmi_error rpmi_mm_communicate(struct rpmi_service_group *group,
 	if (!request_data || !sgmm)
 		return RPMI_ERR_NO_DATA;
 
-	if ((sgmm->mmi.svc_type < RPMI_MM_SERVICE_EFI) ||
-	    (sgmm->mmi.svc_type >= RPMI_MM_SERVICE_MAX))
-		return RPMI_ERR_NO_DATA;
-
 	DPRINTF("Service group = %s", group->name);
 
-	if (mm_service_handlers[sgmm->mmi.svc_type])
-		status = mm_service_handlers[sgmm->mmi.svc_type]
-		    (group, service, xport, request_datalen, request_data,
-		     response_datalen, response_data);
-	else
-		status = RPMI_ERR_NO_DATA;
+	status = rpmi_mm_instance_communicate(group, service, xport,
+					      request_datalen, request_data,
+					      response_datalen, response_data);
 
 	*response_datalen = 2 * sizeof(rpmi_uint32_t);
 	rsp[0] = rpmi_to_xe32(xport->is_be, (rpmi_int32_t)status);
@@ -102,19 +96,20 @@ static struct rpmi_service rpmi_mm_services[RPMI_MM_SRV_ID_MAX] = {
 	        },
 };
 
-struct rpmi_service_group *rpmi_service_group_mm_create(struct rpmi_mm *mmi)
+struct rpmi_service_group *rpmi_service_group_mm_create(struct rpmi_mm *mm)
 {
 	struct rpmi_service_group_mm *sgmm;
 	struct rpmi_service_group *group;
 
 	/* Critical parameter should be non-NULL */
-	if (!mmi) {
+	if (!mm) {
 		DPRINTF("invalid parameter: instance pointer is NULL");
 		return NULL;
 	}
 
-	if ((mmi->svc_type < RPMI_MM_SERVICE_EFI) ||
-	    (mmi->svc_type >= RPMI_MM_SERVICE_MAX)) {
+	/* svc_type should be in desired range */
+	if ((mm->svc_type < RPMI_MM_SERVICE_EFI) ||
+	    (mm->svc_type >= RPMI_MM_SERVICE_MAX)) {
 		DPRINTF("invalid parameter: service type");
 		return NULL;
 	}
@@ -129,9 +124,19 @@ struct rpmi_service_group *rpmi_service_group_mm_create(struct rpmi_mm *mmi)
 	sgmm->mm_version =
 	    ((RPMI_MM_MAJOR_VER << MM_MAJOR_VER_SHIFT) & MM_MAJOR_VER_MASK) |
 	    ((RPMI_MM_MINOR_VER & MM_MINOR_VER_MASK));
-	rpmi_env_memcpy(&sgmm->mmi, mmi, sizeof(sgmm->mmi));
+	rpmi_env_memcpy(&sgmm->mm, mm, sizeof(sgmm->mm));
 
 	group = &sgmm->group;
+
+	switch (sgmm->mm.svc_type) {
+	case RPMI_MM_SERVICE_EFI:
+		group->name = "mm_efi";
+		break;
+
+	default:
+		break;
+	}
+
 	group->servicegroup_id = RPMI_SRVGRP_MANAGEMENT_MODE;
 	group->servicegroup_version =
 	    RPMI_BASE_VERSION(RPMI_SPEC_VERSION_MAJOR, RPMI_SPEC_VERSION_MINOR);
@@ -142,15 +147,6 @@ struct rpmi_service_group *rpmi_service_group_mm_create(struct rpmi_mm *mmi)
 	group->process_events = NULL;
 	group->lock = rpmi_env_alloc_lock();
 	group->priv = sgmm;
-
-	switch (sgmm->mmi.svc_type) {
-	case RPMI_MM_SERVICE_EFI:
-		group->name = "mm_efi";
-		break;
-
-	default:
-		break;
-	}
 
 	return group;
 }

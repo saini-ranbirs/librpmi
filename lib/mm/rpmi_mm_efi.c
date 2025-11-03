@@ -22,8 +22,9 @@ struct mm_efi_comm_header_guid mm_comm_hdr_guid_lut[] = {
 	[5] { MM_EFI_EXIT_BOOT_SVC_GUID, MM_EFI_EXIT_BOOT_SVC_GUID_DATA },
 };
 
-#define MAX_TRANSFER_SIZE  (16 * 1024)	/* 16 KB */
 static rpmi_uint8_t payload_buffer[MAX_PAYLOAD_SIZE];
+
+#define MAX_TRANSFER_SIZE  (16 * 1024)	/* 16 KB */
 rpmi_uint8_t msg_buffer[MAX_TRANSFER_SIZE];
 
 #ifdef DEBUG
@@ -273,7 +274,7 @@ static enum rpmi_error efi_var_fn_handler(struct rpmi_service_group_mm *sgmm,
 		DPRINTF("Processing %s efi_calls_counter %u",
 			get_var_fn_string(var_comm_hdr->function),
 			++efi_calls_counter);
-		status = fn_get_variable(&sgmm->mmi.svc_efi, var_comm_hdr,
+		status = fn_get_variable(&sgmm->mm.u.svc_efi, var_comm_hdr,
 					 payload_size);
 		break;
 
@@ -281,7 +282,7 @@ static enum rpmi_error efi_var_fn_handler(struct rpmi_service_group_mm *sgmm,
 		DPRINTF("Processing %s efi_calls_counter %u",
 			get_var_fn_string(var_comm_hdr->function),
 			++efi_calls_counter);
-		status = fn_get_next_var_name(&sgmm->mmi.svc_efi, var_comm_hdr,
+		status = fn_get_next_var_name(&sgmm->mm.u.svc_efi, var_comm_hdr,
 					      payload_size);
 		break;
 
@@ -289,7 +290,7 @@ static enum rpmi_error efi_var_fn_handler(struct rpmi_service_group_mm *sgmm,
 		DPRINTF("Processing %s efi_calls_counter %u",
 			get_var_fn_string(var_comm_hdr->function),
 			++efi_calls_counter);
-		status = fn_set_variable(&sgmm->mmi.svc_efi, var_comm_hdr,
+		status = fn_set_variable(&sgmm->mm.u.svc_efi, var_comm_hdr,
 					 payload_size);
 		break;
 
@@ -329,8 +330,8 @@ enum rpmi_error mm_efi_communicate(struct rpmi_service_group *group,
 {
 	struct rpmi_service_group_mm *sgmm = group->priv;
 	struct efi_var_policy_comm_header *policy_hdr;
-	rpmi_uint32_t *rsp = (void *)response_data;
 	struct mm_efi_comm_header *mm_comm_hdr, *msg;
+	rpmi_uint32_t *rsp = (void *)response_data;
 	struct rpmi_mm_comm_req *mmc_req;
 	rpmi_uint64_t msg_len, mm_addr;
 	rpmi_uint64_t status;
@@ -339,11 +340,11 @@ enum rpmi_error mm_efi_communicate(struct rpmi_service_group *group,
 	if (!request_data)
 		return RPMI_ERR_NO_DATA;
 
-	if (sgmm->mmi.svc_type != RPMI_MM_SERVICE_EFI)
+	if (sgmm->mm.svc_type != RPMI_MM_SERVICE_EFI)
 		return RPMI_ERR_NO_DATA;
 
 	mmc_req = (struct rpmi_mm_comm_req *)request_data;
-	mm_addr = sgmm->mmi.shmem_addr + mmc_req->idata_off;
+	mm_addr = sgmm->mm.shmem_addr + mmc_req->idata_off;
 
 	rpmi_env_readb(mm_addr, (rpmi_uint8_t *)&msg_buffer,
 		       sizeof(struct mm_efi_comm_header));

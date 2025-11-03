@@ -119,4 +119,12 @@ struct efi_var_get_payload_size {
 
 #pragma pack()
 
+enum rpmi_error mm_efi_communicate(struct rpmi_service_group *group,
+				   struct rpmi_service *service,
+				   struct rpmi_transport *xport,
+				   rpmi_uint16_t request_datalen,
+				   const rpmi_uint8_t *request_data,
+				   rpmi_uint16_t *response_datalen,
+				   rpmi_uint8_t *response_data);
+
 #endif /* __RPMI_MM_EFI_H__ */

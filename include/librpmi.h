@@ -1624,7 +1624,7 @@ struct rpmi_mm {
 		 * and then it will be replaced by appropriate requirement.
 		 */
 		void			*nothing;
-	};
+	} u;
 };
 
 /** Basic EFI error defines */

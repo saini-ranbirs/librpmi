@@ -21,7 +21,7 @@
 
 struct rpmi_service_group_mm {
 	rpmi_uint32_t mm_version;
-	struct rpmi_mm mmi;
+	struct rpmi_mm mm;
 	struct rpmi_service_group group;
 };
 
@@ -32,28 +32,20 @@ struct rpmi_mm_comm_req {
 	rpmi_uint32_t odata_len;
 };
 
-enum rpmi_error mm_efi_communicate(struct rpmi_service_group *group,
-				   struct rpmi_service *service,
-				   struct rpmi_transport *xport,
-				   rpmi_uint16_t request_datalen,
-				   const rpmi_uint8_t *request_data,
-				   rpmi_uint16_t *response_datalen,
-				   rpmi_uint8_t *response_data);
+typedef enum rpmi_error (*communicate_fp)(struct rpmi_service_group *group,
+					  struct rpmi_service *service,
+					  struct rpmi_transport *xport,
+					  rpmi_uint16_t request_datalen,
+					  const rpmi_uint8_t *request_data,
+					  rpmi_uint16_t *response_datalen,
+					  rpmi_uint8_t *response_data);
 
-#ifdef RPMI_MM_COMMON_OWNER
-
-typedef enum rpmi_error (*comm_handlers)(struct rpmi_service_group *group,
-					 struct rpmi_service *service,
-					 struct rpmi_transport *xport,
-					 rpmi_uint16_t request_datalen,
-					 const rpmi_uint8_t *request_data,
-					 rpmi_uint16_t *response_datalen,
-					 rpmi_uint8_t *response_data);
-
-static comm_handlers mm_service_handlers[RPMI_MM_SERVICE_MAX] = {
-	[RPMI_MM_SERVICE_EFI] = mm_efi_communicate,
-};
-
-#endif /* RPMI_MM_COMMON_OWNER */
+enum rpmi_error rpmi_mm_instance_communicate(struct rpmi_service_group *group,
+					     struct rpmi_service *service,
+					     struct rpmi_transport *xport,
+					     rpmi_uint16_t request_datalen,
+					     const rpmi_uint8_t *request_data,
+					     rpmi_uint16_t *response_datalen,
+					     rpmi_uint8_t *response_data);
 
 #endif /* __RPMI_MM_COMMON_H__ */
